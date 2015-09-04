@@ -194,10 +194,10 @@ window.componentHandler = (function() {
     for (var i = 0, n = elements.length, element; i < n; i++) {
       element = elements[i];
       if (element instanceof HTMLElement) {
+        upgradeElementInternal(element);
         if (element.children.length > 0) {
           upgradeElementsInternal(element.children);
         }
-        upgradeElementInternal(element);
       }
     }
   }
@@ -1776,6 +1776,137 @@ componentHandler.register({
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * Class constructor for select dropdown MDL component.
+ * Implements MDL component design pattern defined at:
+ * https://github.com/jasonmayes/mdl-component-design-pattern
+ * @param {HTMLElement} element The element that will be upgraded.
+ */
+function MaterialSelectfield(element) {
+  'use strict';
+
+  this.element_ = element;
+
+  this.init();
+}
+
+/**
+ * Store constants in one place so they can be updated easily.
+ * @enum {string | number}
+ * @private
+ */
+MaterialSelectfield.prototype.Constant_ = {
+  // None for now.
+};
+
+/**
+ * Store strings for class names defined by this component that are used in
+ * JavaScript. This allows us to simply change it in one place should we
+ * decide to modify at a later date.
+ * @enum {string}
+ * @private
+ */
+MaterialSelectfield.prototype.CssClasses_ = {
+  SELECT: 'mdl-selectfield__select'
+};
+
+/**
+ * Initialize element.
+ */
+MaterialSelectfield.prototype.init = function() {
+  'use strict';
+
+  if (this.element_) {
+    this.select_ = this.element_.querySelector('.' + this.CssClasses_.SELECT);
+
+    // create button to trigger the menu
+    this.button_ = document.createElement('a');
+    this.button_.classList.add('mdl-select__button');
+    this.button_.classList.add('mdl-button');
+    this.button_.classList.add('mdl-js-button');
+    this.button_.innerHTML = this.select_.value;
+    this.button_.addEventListener('click', this.clickMenu_.bind(this));
+
+    // create menu
+    this.menu_ = document.createElement('ul');
+    this.menu_.classList.add('mdl-select__menu');
+    this.menu_.classList.add('mdl-menu');
+    this.menu_.classList.add('mdl-menu--bottom-left');
+    this.menu_.classList.add('mdl-js-menu');
+    this.menu_.classList.add('mdl-js-ripple-effect');
+
+    var options = this.select_.querySelectorAll('option');
+    for (var i = 0; i < options.length; i++) {
+      var menuItem = document.createElement('li');
+      menuItem.classList.add('mdl-menu__item');
+      if (options[i].value === this.select_.value) {
+        this.button_.innerHTML = options[i].innerHTML;
+      }
+      menuItem.innerHTML = options[i].innerHTML;
+      menuItem.addEventListener('click', this.clickMenuItem_.bind(this));
+      this.menu_.appendChild(menuItem);
+    }
+
+    this.element_.appendChild(this.button_);
+    this.element_.appendChild(this.menu_);
+
+    componentHandler.upgradeElement(this.menu_, 'MaterialMenu');
+  }
+};
+
+MaterialSelectfield.prototype.clickMenu_ = function(evt) {
+  'use strict';
+
+  this.menu_.MaterialMenu.show();
+  var callback = function(e) {
+    // Check to see if the document is processing the same event that
+    // displayed the item in the first place. If so, do nothing.
+    if (e !== evt) {
+      document.removeEventListener('click', callback);
+      this.menu_.MaterialMenu.hide();
+    }
+  }.bind(this);
+  document.addEventListener('click', callback);
+};
+
+MaterialSelectfield.prototype.clickMenuItem_ = function(event) {
+  'use strict';
+
+  // change select to point to selected item (change index to index of menuItem inside menu)
+  this.select_.selectedIndex = Array.prototype.indexOf.call(event.target.parentElement.childNodes, event.target);
+
+  // get the option that has been chosen from our original select
+  var option = this.select_.options[this.select_.selectedIndex];
+
+  // set the buton text to the text of the selected option
+  this.button_.innerHTML = option.innerHTML;
+};
+
+// The component registers itself. It can assume componentHandler is
+// available in the global scope.
+componentHandler.register({
+  constructor: MaterialSelectfield,
+  classAsString: 'MaterialSelectfield',
+  cssClass: 'mdl-js-selectfield'
+});
+
+/**
+ * @license
+ * Copyright 2015 Google Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /**
    * Class constructor for Slider MDL component.
    * Implements MDL component design pattern defined at:
@@ -3061,8 +3192,15 @@ MaterialLayout.prototype.init = function () {
         };
         // Add drawer toggling button to our layout, if we have an openable drawer.
         if (this.drawer_) {
-            var drawerButton = document.createElement('div');
-            drawerButton.classList.add(this.CssClasses_.DRAWER_BTN);
+            var drawerButton = this.element_.querySelector('.' + this.CssClasses_.DRAWER_BTN);
+            if (typeof drawerButton === 'undefined' || drawerButton === null) {
+                drawerButton = document.createElement('div');
+                drawerButton.classList.add(this.CssClasses_.DRAWER_BTN);
+                var drawerButtonIcon = document.createElement('i');
+                drawerButtonIcon.classList.add(this.CssClasses_.ICON);
+                drawerButtonIcon.textContent = this.Constant_.MENU_ICON;
+                drawerButton.appendChild(drawerButtonIcon);
+            }
             if (this.drawer_.classList.contains(this.CssClasses_.ON_LARGE_SCREEN)) {
                 //If drawer has ON_LARGE_SCREEN class then add it to the drawer toggle button as well.
                 drawerButton.classList.add(this.CssClasses_.ON_LARGE_SCREEN);
@@ -3070,16 +3208,11 @@ MaterialLayout.prototype.init = function () {
                 //If drawer has ON_SMALL_SCREEN class then add it to the drawer toggle button as well.
                 drawerButton.classList.add(this.CssClasses_.ON_SMALL_SCREEN);
             }
-            var drawerButtonIcon = document.createElement('i');
-            drawerButtonIcon.classList.add(this.CssClasses_.ICON);
-            drawerButtonIcon.textContent = this.Constant_.MENU_ICON;
-            drawerButton.appendChild(drawerButtonIcon);
             drawerButton.addEventListener('click', this.drawerToggleHandler_.bind(this));
             // Add a class if the layout has a drawer, for altering the left padding.
             // Adds the HAS_DRAWER to the elements since this.header_ may or may
             // not be present.
             this.element_.classList.add(this.CssClasses_.HAS_DRAWER);
-            this.drawer_.addEventListener('mousewheel', eatEvent);
             // If we have a fixed header, add the button to the header rather than
             // the layout.
             if (this.element_.classList.contains(this.CssClasses_.FIXED_HEADER)) {
@@ -3153,6 +3286,14 @@ MaterialLayout.prototype.init = function () {
     }
 };
 function MaterialLayoutTab(tab, tabs, panels, layout) {
+    function selectTab() {
+        var href = tab.href.split('#')[1];
+        var panel = layout.content_.querySelector('#' + href);
+        layout.resetTabState_(tabs);
+        layout.resetPanelState_(panels);
+        tab.classList.add(layout.CssClasses_.IS_ACTIVE);
+        panel.classList.add(layout.CssClasses_.IS_ACTIVE);
+    }
     if (tab) {
         if (layout.tabBar_.classList.contains(layout.CssClasses_.JS_RIPPLE_EFFECT)) {
             var rippleContainer = document.createElement('span');
@@ -3165,13 +3306,9 @@ function MaterialLayoutTab(tab, tabs, panels, layout) {
         }
         tab.addEventListener('click', function (e) {
             e.preventDefault();
-            var href = tab.href.split('#')[1];
-            var panel = layout.content_.querySelector('#' + href);
-            layout.resetTabState_(tabs);
-            layout.resetPanelState_(panels);
-            tab.classList.add(layout.CssClasses_.IS_ACTIVE);
-            panel.classList.add(layout.CssClasses_.IS_ACTIVE);
+            selectTab();
         });
+        tab.show = selectTab;
     }
 }
 // The component registers itself. It can assume componentHandler is available
@@ -3288,7 +3425,14 @@ MaterialDataTable.prototype.createCheckbox_ = function (row, rows) {
     checkbox.type = 'checkbox';
     checkbox.classList.add('mdl-checkbox__input');
     if (row) {
+        checkbox.checked = row.classList.contains(this.CssClasses_.IS_SELECTED);
         checkbox.addEventListener('change', this.selectRow_(checkbox, row));
+        if (row.dataset.mdlDataTableSelectableName) {
+            checkbox.name = row.dataset.mdlDataTableSelectableName;
+        }
+        if (row.dataset.mdlDataTableSelectableValue) {
+            checkbox.value = row.dataset.mdlDataTableSelectableValue;
+        }
     } else if (rows) {
         checkbox.addEventListener('change', this.selectRow_(checkbox, null, rows));
     }
@@ -3302,7 +3446,9 @@ MaterialDataTable.prototype.createCheckbox_ = function (row, rows) {
 MaterialDataTable.prototype.init = function () {
     if (this.element_) {
         var firstHeader = this.element_.querySelector('th');
-        var rows = this.element_.querySelector('tbody').querySelectorAll('tr');
+        var bodyRows = Array.prototype.slice.call(this.element_.querySelectorAll('tbody tr'));
+        var footRows = Array.prototype.slice.call(this.element_.querySelectorAll('tfoot tr'));
+        var rows = bodyRows.concat(footRows);
         if (this.element_.classList.contains(this.CssClasses_.SELECTABLE)) {
             var th = document.createElement('th');
             var headerCheckbox = this.createCheckbox_(null, rows);
@@ -3312,13 +3458,15 @@ MaterialDataTable.prototype.init = function () {
                 var firstCell = rows[i].querySelector('td');
                 if (firstCell) {
                     var td = document.createElement('td');
-                    var rowCheckbox = this.createCheckbox_(rows[i]);
-                    td.appendChild(rowCheckbox);
+                    if (rows[i].parentNode.nodeName.toUpperCase() === 'TBODY') {
+                        var rowCheckbox = this.createCheckbox_(rows[i]);
+                        td.appendChild(rowCheckbox);
+                    }
                     rows[i].insertBefore(td, firstCell);
                 }
             }
+            this.element_.classList.add(this.CssClasses_.IS_UPGRADED);
         }
-        this.element_.classList.add(this.CssClasses_.IS_UPGRADED);
     }
 };
 // The component registers itself. It can assume componentHandler is available
